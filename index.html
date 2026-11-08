@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Action Tracker</title>
+<style>
+  :root {
+    --bg: #f4f2ee;
+    --card: #ffffff;
+    --ink: #2b2a28;
+    --muted: #84807a;
+    --line: #e6e2db;
+    --accent: #e8731a;
+    --accent-soft: #fdf0e4;
+    --overdue: #c62d2d;
+    --overdue-soft: #fdeaea;
+    --done: #a8a39b;
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1d1c1a;
+      --card: #272624;
+      --ink: #efece6;
+      --muted: #9a958c;
+      --line: #3a3835;
+      --accent: #f08a3a;
+      --accent-soft: #3a2a1c;
+      --overdue: #ff6b6b;
+      --overdue-soft: #3b2224;
+      --done: #6f6b64;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 40px 16px 80px; }
+  header h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -0.5px; }
+  header p { margin: 0; color: var(--muted); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 28px 0 20px; }
+  .stat .num { font-size: 40px; font-weight: 700; line-height: 1; }
+  .stat .lbl { color: var(--muted); font-size: 15px; margin-top: 6px; }
+  .stat.open .num { color: var(--accent); }
+  .stat.overdue .num { color: var(--overdue); }
+  .stat.overdue.zero .num { color: var(--ink); }
+
+  form.add { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: end; }
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], input[type=date] {
+    width: 100%;
+    font: inherit;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  input:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button.primary {
+    font: inherit;
+    font-weight: 600;
+    padding: 12px 22px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.primary:hover { filter: brightness(0.95); }
+  .err { color: var(--overdue); font-size: 15px; margin-top: 10px; min-height: 1em; }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 12px; }
+  .toolbar h2 { font-size: 22px; margin: 0; }
+  .link {
+    font: inherit; font-size: 15px; color: var(--muted);
+    background: none; border: 0; cursor: pointer; text-decoration: underline;
+  }
+  .link:hover { color: var(--ink); }
+
+  .groups { display: grid; gap: 16px; }
+  .group h3 {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin: 0 0 8px; font-size: 20px;
+  }
+  .group h3 small { font-weight: 400; color: var(--muted); font-size: 15px; }
+
+  .item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 14px 10px; border-top: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .item:first-of-type { border-top: 0; }
+  .item input[type=checkbox] {
+    width: 26px; height: 26px; margin: 2px 0 0; flex: none;
+    accent-color: var(--accent); cursor: pointer;
+  }
+  .item .body { flex: 1; min-width: 0; }
+  .item .text { word-wrap: break-word; }
+  .item .due { font-size: 15px; color: var(--muted); margin-top: 2px; }
+  .item.done .text { text-decoration: line-through; color: var(--done); }
+  .item.done .due { color: var(--done); }
+  .item.overdue { background: var(--overdue-soft); }
+  .item.overdue .text { color: var(--overdue); font-weight: 600; }
+  .item.overdue .due { color: var(--overdue); font-weight: 600; }
+  .del {
+    background: none; border: 0; color: var(--muted); font-size: 24px; line-height: 1;
+    cursor: pointer; padding: 0 6px; border-radius: 6px;
+  }
+  .del:hover { color: var(--overdue); }
+
+  .empty { text-align: center; color: var(--muted); padding: 36px 16px; }
+
+  @media (max-width: 720px) {
+    form.add { grid-template-columns: 1fr; }
+    .stat .num { font-size: 32px; }
+    header h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Action Tracker</h1>
+    <p>Every agreed action, one owner, one due date.</p>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <div class="card stat open"><div class="num" id="nOpen">0</div><div class="lbl">Open</div></div>
+    <div class="card stat done"><div class="num" id="nDone">0</div><div class="lbl">Done</div></div>
+    <div class="card stat overdue" id="overdueCard"><div class="num" id="nOver">0</div><div class="lbl">Overdue</div></div>
+  </section>
+
+  <section class="card">
+    <form class="add" id="addForm" autocomplete="off">
+      <div>
+        <label for="fText">Action</label>
+        <input type="text" id="fText" placeholder="e.g. Send revised quote to client" maxlength="200">
+      </div>
+      <div>
+        <label for="fOwner">Owner</label>
+        <input type="text" id="fOwner" list="owners" placeholder="Name" maxlength="40">
+        <datalist id="owners"></datalist>
+      </div>
+      <div>
+        <label for="fDue">Due date</label>
+        <input type="date" id="fDue">
+      </div>
+      <button class="primary" type="submit">Add action</button>
+    </form>
+    <div class="err" id="err" role="alert"></div>
+  </section>
+
+  <div class="toolbar">
+    <h2>By owner</h2>
+    <button class="link" id="clearDone" type="button">Clear completed</button>
+  </div>
+  <div class="groups" id="groups"></div>
+</div>
+
+<script>
+(function () {
+  var KEY = "actionTracker.v1";
+  var actions = load();
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      var data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data : [];
+    } catch (e) { return []; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(actions)); } catch (e) {}
+  }
+
+  function todayStr() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmt(s) {
+    var p = s.split("-");
+    return parseInt(p[2], 10) + " " + MONTHS[parseInt(p[1], 10) - 1] + " " + p[0];
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function isOverdue(a) { return !a.done && a.due < todayStr(); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function render() {
+    var open = actions.filter(function (a) { return !a.done; }).length;
+    var over = actions.filter(isOverdue).length;
+    $("nOpen").textContent = open;
+    $("nDone").textContent = actions.length - open;
+    $("nOver").textContent = over;
+    $("overdueCard").classList.toggle("zero", over === 0);
+
+    // owner suggestions
+    var names = {};
+    actions.forEach(function (a) { names[a.owner] = true; });
+    $("owners").innerHTML = Object.keys(names).sort().map(function (n) {
+      return '<option value="' + esc(n) + '">';
+    }).join("");
+
+    var host = $("groups");
+    if (!actions.length) {
+      host.innerHTML = '<div class="card empty">No actions yet. Add the first one above.</div>';
+      return;
+    }
+
+    var byOwner = {};
+    actions.forEach(function (a) { (byOwner[a.owner] = byOwner[a.owner] || []).push(a); });
+
+    host.innerHTML = Object.keys(byOwner).sort(function (a, b) {
+      return a.toLowerCase().localeCompare(b.toLowerCase());
+    }).map(function (owner) {
+      var list = byOwner[owner].slice().sort(function (a, b) {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        return a.due.localeCompare(b.due);
+      });
+      var openCount = list.filter(function (a) { return !a.done; }).length;
+      var rows = list.map(function (a) {
+        var cls = "item" + (a.done ? " done" : "") + (isOverdue(a) ? " overdue" : "");
+        var dueTxt = (isOverdue(a) ? "Overdue, due " : "Due ") + fmt(a.due);
+        return '<div class="' + cls + '">' +
+          '<input type="checkbox" data-id="' + a.id + '"' + (a.done ? " checked" : "") +
+          ' aria-label="Mark done: ' + esc(a.text) + '">' +
+          '<div class="body"><div class="text">' + esc(a.text) + '</div>' +
+          '<div class="due">' + dueTxt + '</div></div>' +
+          '<button class="del" data-del="' + a.id + '" aria-label="Delete action" title="Delete">&times;</button>' +
+          '</div>';
+      }).join("");
+      return '<section class="card group"><h3>' + esc(owner) +
+        '<small>' + openCount + ' open of ' + list.length + '</small></h3>' + rows + '</section>';
+    }).join("");
+  }
+
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = $("fText").value.trim();
+    var owner = $("fOwner").value.trim();
+    var due = $("fDue").value;
+    if (!text || !owner || !due) {
+      $("err").textContent = "Please fill in the action, the owner and the due date.";
+      return;
+    }
+    $("err").textContent = "";
+    // reuse existing owner capitalisation
+    var existing = actions.filter(function (a) { return a.owner.toLowerCase() === owner.toLowerCase(); })[0];
+    if (existing) owner = existing.owner;
+    actions.push({ id: uid(), text: text, owner: owner, due: due, done: false });
+    save();
+    $("fText").value = "";
+    $("fText").focus();
+    render();
+  });
+
+  $("groups").addEventListener("change", function (e) {
+    var id = e.target.getAttribute("data-id");
+    if (!id) return;
+    actions.forEach(function (a) { if (a.id === id) a.done = e.target.checked; });
+    save();
+    render();
+  });
+
+  $("groups").addEventListener("click", function (e) {
+    var id = e.target.getAttribute("data-del");
+    if (!id) return;
+    actions = actions.filter(function (a) { return a.id !== id; });
+    save();
+    render();
+  });
+
+  $("clearDone").addEventListener("click", function () {
+    var n = actions.filter(function (a) { return a.done; }).length;
+    if (!n) return;
+    if (confirm("Remove " + n + " completed action" + (n === 1 ? "" : "s") + "?")) {
+      actions = actions.filter(function (a) { return !a.done; });
+      save();
+      render();
+    }
+  });
+
+  // overdue status changes at midnight, so refresh when the tab regains focus
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
