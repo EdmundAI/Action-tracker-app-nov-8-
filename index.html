@@ -173,23 +173,45 @@
     <h2>By owner</h2>
     <button class="link" id="clearDone" type="button">Clear completed</button>
   </div>
+  <div class="err" id="banner" role="alert"></div>
   <div class="groups" id="groups"></div>
 </div>
 
 <script>
 (function () {
-  var KEY = "actionTracker.v1";
-  var actions = load();
+  var SUPABASE_URL = "https://jbludfmlgaymvebzhffw.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_p3NF9J1_j4fZQuIjzOh6Fg_b885Dqag";
+  var API = SUPABASE_URL + "/rest/v1/actions";
+  var HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": "Bearer " + SUPABASE_KEY,
+    "Content-Type": "application/json"
+  };
+  var actions = [];
+  var $ = function (id) { return document.getElementById(id); };
 
-  function load() {
-    try {
-      var raw = localStorage.getItem(KEY);
-      var data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data : [];
-    } catch (e) { return []; }
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, HEADERS, opts.headers || {});
+    return fetch(API + path, opts).then(function (r) {
+      if (!r.ok) {
+        return r.text().then(function (t) { throw new Error(t || r.statusText); });
+      }
+      return r.status === 204 ? null : r.json();
+    });
   }
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(actions)); } catch (e) {}
+  function showError(msg) { $("banner").textContent = msg || ""; }
+  function fail(e) {
+    console.error(e);
+    showError("Could not reach the database. Check your connection and that setup.sql has been run, then refresh.");
+  }
+
+  function refresh() {
+    return api("?select=*&order=due.asc,created_at.asc").then(function (rows) {
+      actions = rows || [];
+      showError("");
+      render();
+    }).catch(fail);
   }
 
   function todayStr() {
@@ -209,9 +231,6 @@
     });
   }
   function isOverdue(a) { return !a.done && a.due < todayStr(); }
-  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
-  var $ = function (id) { return document.getElementById(id); };
 
   function render() {
     var open = actions.filter(function (a) { return !a.done; }).length;
@@ -221,7 +240,6 @@
     $("nOver").textContent = over;
     $("overdueCard").classList.toggle("zero", over === 0);
 
-    // owner suggestions
     var names = {};
     actions.forEach(function (a) { names[a.owner] = true; });
     $("owners").innerHTML = Object.keys(names).sort().map(function (n) {
@@ -271,46 +289,47 @@
       return;
     }
     $("err").textContent = "";
-    // reuse existing owner capitalisation
     var existing = actions.filter(function (a) { return a.owner.toLowerCase() === owner.toLowerCase(); })[0];
     if (existing) owner = existing.owner;
-    actions.push({ id: uid(), text: text, owner: owner, due: due, done: false });
-    save();
-    $("fText").value = "";
-    $("fText").focus();
-    render();
+    api("", {
+      method: "POST",
+      headers: { "Prefer": "return=minimal" },
+      body: JSON.stringify({ text: text, owner: owner, due: due })
+    }).then(function () {
+      $("fText").value = "";
+      $("fText").focus();
+      return refresh();
+    }).catch(fail);
   });
 
   $("groups").addEventListener("change", function (e) {
     var id = e.target.getAttribute("data-id");
     if (!id) return;
-    actions.forEach(function (a) { if (a.id === id) a.done = e.target.checked; });
-    save();
-    render();
+    api("?id=eq." + encodeURIComponent(id), {
+      method: "PATCH",
+      headers: { "Prefer": "return=minimal" },
+      body: JSON.stringify({ done: e.target.checked })
+    }).then(refresh).catch(fail);
   });
 
   $("groups").addEventListener("click", function (e) {
     var id = e.target.getAttribute("data-del");
     if (!id) return;
-    actions = actions.filter(function (a) { return a.id !== id; });
-    save();
-    render();
+    api("?id=eq." + encodeURIComponent(id), { method: "DELETE" }).then(refresh).catch(fail);
   });
 
   $("clearDone").addEventListener("click", function () {
     var n = actions.filter(function (a) { return a.done; }).length;
     if (!n) return;
     if (confirm("Remove " + n + " completed action" + (n === 1 ? "" : "s") + "?")) {
-      actions = actions.filter(function (a) { return !a.done; });
-      save();
-      render();
+      api("?done=eq.true", { method: "DELETE" }).then(refresh).catch(fail);
     }
   });
 
-  // overdue status changes at midnight, so refresh when the tab regains focus
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
+  // refresh when the tab regains focus so the team sees each other's changes
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });
 
-  render();
+  refresh();
 })();
 </script>
 </body>
