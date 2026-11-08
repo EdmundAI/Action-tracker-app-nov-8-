@@ -12,7 +12,6 @@
     --muted: #84807a;
     --line: #e6e2db;
     --accent: #e8731a;
-    --accent-soft: #fdf0e4;
     --overdue: #c62d2d;
     --overdue-soft: #fdeaea;
     --done: #a8a39b;
@@ -26,13 +25,13 @@
       --muted: #9a958c;
       --line: #3a3835;
       --accent: #f08a3a;
-      --accent-soft: #3a2a1c;
       --overdue: #ff6b6b;
       --overdue-soft: #3b2224;
       --done: #6f6b64;
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--bg);
@@ -42,8 +41,21 @@
     line-height: 1.45;
   }
   .wrap { max-width: 920px; margin: 0 auto; padding: 40px 16px 80px; }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
   header h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -0.5px; }
   header p { margin: 0; color: var(--muted); }
+  .userbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 14px; font-size: 16px;
+  }
+  .chip b { color: var(--accent); }
+  .chip small { color: var(--muted); font-size: 13px; margin-left: 4px; }
+  button.ghost {
+    font: inherit; font-size: 16px; padding: 7px 16px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer;
+  }
+  button.ghost:hover { border-color: var(--accent); color: var(--accent); }
 
   .card {
     background: var(--card);
@@ -60,8 +72,9 @@
   .stat.overdue.zero .num { color: var(--ink); }
 
   form.add { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: end; }
+  form.adduser { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
   label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
-  input[type=text], input[type=date] {
+  input[type=text], input[type=date], input[type=password] {
     width: 100%;
     font: inherit;
     padding: 12px 14px;
@@ -86,7 +99,9 @@
     white-space: nowrap;
   }
   button.primary:hover { filter: brightness(0.95); }
+  button.primary:disabled { opacity: 0.6; cursor: wait; }
   .err { color: var(--overdue); font-size: 15px; margin-top: 10px; min-height: 1em; }
+  .ok { color: #2f7d4f; font-size: 15px; margin-top: 10px; min-height: 1em; }
 
   .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 12px; }
   .toolbar h2 { font-size: 22px; margin: 0; }
@@ -129,19 +144,78 @@
 
   .empty { text-align: center; color: var(--muted); padding: 36px 16px; }
 
+  /* login */
+  .login { max-width: 420px; margin: 12vh auto 0; }
+  .login h1 { margin: 0 0 4px; }
+  .login p { color: var(--muted); margin: 0 0 22px; }
+  .login .field { margin-bottom: 14px; }
+  .login button.primary { width: 100%; margin-top: 6px; }
+
+  /* team panel */
+  .team { margin-top: 20px; }
+  .team h2 { font-size: 22px; margin: 0 0 12px; }
+  .members { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+
   @media (max-width: 720px) {
-    form.add { grid-template-columns: 1fr; }
+    form.add, form.adduser { grid-template-columns: 1fr; }
     .stat .num { font-size: 32px; }
     header h1 { font-size: 28px; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
+
+<!-- Sign in -->
+<div class="wrap" id="loginView" hidden>
+  <div class="login card">
     <h1>Action Tracker</h1>
-    <p>Every agreed action, one owner, one due date.</p>
-  </header>
+    <p>Sign in to see your team's actions.</p>
+    <form id="loginForm" autocomplete="on">
+      <div class="field">
+        <label for="lUser">Username</label>
+        <input type="text" id="lUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="lPass">Password</label>
+        <input type="password" id="lPass" name="password" autocomplete="current-password">
+      </div>
+      <button class="primary" type="submit" id="lBtn">Sign in</button>
+      <div class="err" id="lErr" role="alert"></div>
+    </form>
+  </div>
+</div>
+
+<!-- App -->
+<div class="wrap" id="appView" hidden>
+  <div class="topbar">
+    <header>
+      <h1>Action Tracker</h1>
+      <p>Every agreed action, one owner, one due date.</p>
+    </header>
+    <div class="userbar">
+      <span class="chip">Signed in as <b id="meName"></b><small id="meRole"></small></span>
+      <button class="ghost" id="teamBtn" type="button" hidden>Manage users</button>
+      <button class="ghost" id="signOut" type="button">Sign out</button>
+    </div>
+  </div>
+
+  <section class="card team" id="teamPanel" hidden>
+    <h2>Users</h2>
+    <div class="members" id="members"></div>
+    <form class="adduser" id="userForm" autocomplete="off">
+      <div>
+        <label for="uName">New username</label>
+        <input type="text" id="uName" placeholder="e.g. sarah" maxlength="30" autocapitalize="none" spellcheck="false">
+      </div>
+      <div>
+        <label for="uPass">Initial password</label>
+        <input type="password" id="uPass" placeholder="At least 6 characters" autocomplete="new-password">
+      </div>
+      <button class="primary" type="submit" id="uBtn">Add user</button>
+    </form>
+    <div class="err" id="uErr" role="alert"></div>
+    <div class="ok" id="uOk"></div>
+  </section>
 
   <section class="stats" aria-label="Summary">
     <div class="card stat open"><div class="num" id="nOpen">0</div><div class="lbl">Open</div></div>
@@ -181,44 +255,175 @@
 (function () {
   var SUPABASE_URL = "https://jbludfmlgaymvebzhffw.supabase.co";
   var SUPABASE_KEY = "sb_publishable_p3NF9J1_j4fZQuIjzOh6Fg_b885Dqag";
-  var API = SUPABASE_URL + "/rest/v1/actions";
-  var HEADERS = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": "Bearer " + SUPABASE_KEY,
-    "Content-Type": "application/json"
-  };
-  var actions = [];
-  var $ = function (id) { return document.getElementById(id); };
+  var EMAIL_DOMAIN = "@actiontracker.app";   // usernames map to <username>@actiontracker.app in Supabase Auth
+  var SESSION_KEY = "actionTracker.session";
 
-  function api(path, opts) {
+  var $ = function (id) { return document.getElementById(id); };
+  var session = loadSession();
+  var me = null;
+  var profiles = [];
+  var actions = [];
+
+  /* ---------- session ---------- */
+  function loadSession() {
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch (e) { return null; }
+  }
+  function storeSession(s) {
+    session = s;
+    try {
+      if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch (e) {}
+  }
+  function toSession(j) {
+    return {
+      access_token: j.access_token,
+      refresh_token: j.refresh_token,
+      expires_at: j.expires_at || (Math.floor(Date.now() / 1000) + (j.expires_in || 3600)),
+      user_id: j.user && j.user.id
+    };
+  }
+
+  /* ---------- http ---------- */
+  function rawFetch(path, opts, token) {
     opts = opts || {};
-    opts.headers = Object.assign({}, HEADERS, opts.headers || {});
-    return fetch(API + path, opts).then(function (r) {
-      if (!r.ok) {
-        return r.text().then(function (t) { throw new Error(t || r.statusText); });
+    opts.headers = Object.assign({
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + (token || SUPABASE_KEY),
+      "Content-Type": "application/json"
+    }, opts.headers || {});
+    return fetch(SUPABASE_URL + path, opts);
+  }
+  function errText(r) {
+    return r.text().then(function (t) {
+      try { var j = JSON.parse(t); return j.message || j.msg || j.error_description || t; } catch (e) { return t || r.statusText; }
+    });
+  }
+  function refreshSession() {
+    if (!session || !session.refresh_token) return Promise.reject(new Error("no session"));
+    return rawFetch("/auth/v1/token?grant_type=refresh_token", {
+      method: "POST", body: JSON.stringify({ refresh_token: session.refresh_token })
+    }).then(function (r) {
+      if (!r.ok) throw new Error("refresh failed");
+      return r.json();
+    }).then(function (j) { storeSession(toSession(j)); });
+  }
+  function freshToken() {
+    if (!session) return Promise.reject(new Error("no session"));
+    if (session.expires_at - 60 > Date.now() / 1000) return Promise.resolve(session.access_token);
+    return refreshSession().then(function () { return session.access_token; });
+  }
+  // Authenticated call to the database API. Retries once after a 401 by refreshing the token.
+  function api(path, opts, retried) {
+    return freshToken().then(function (token) {
+      return rawFetch("/rest/v1" + path, JSON.parse(JSON.stringify(opts || {})), token);
+    }).then(function (r) {
+      if (r.status === 401 && !retried) {
+        return refreshSession().then(function () { return api(path, opts, true); });
       }
+      if (!r.ok) return errText(r).then(function (t) { throw new Error(t); });
       return r.status === 204 ? null : r.json();
     });
   }
-  function showError(msg) { $("banner").textContent = msg || ""; }
-  function fail(e) {
+  function authFailed(e) {
+    return /no session|refresh failed/.test(e && e.message || "");
+  }
+
+  /* ---------- views ---------- */
+  function showLogin(msg) {
+    $("appView").hidden = true;
+    $("loginView").hidden = false;
+    $("lErr").textContent = msg || "";
+    $("lPass").value = "";
+    $("lUser").focus();
+  }
+  function showApp() {
+    $("loginView").hidden = true;
+    $("appView").hidden = false;
+  }
+  function handleError(e) {
     console.error(e);
-    showError("Could not reach the database. Check your connection and that setup.sql has been run, then refresh.");
+    if (authFailed(e)) { storeSession(null); showLogin("Your session has ended. Please sign in again."); return; }
+    $("banner").textContent = "Something went wrong: " + (e && e.message ? e.message : "unknown error");
   }
 
-  function refresh() {
-    return api("?select=*&order=due.asc,created_at.asc").then(function (rows) {
-      actions = rows || [];
-      showError("");
-      render();
-    }).catch(fail);
-  }
+  /* ---------- sign in / out ---------- */
+  $("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var u = $("lUser").value.trim().toLowerCase();
+    var p = $("lPass").value;
+    if (!u || !p) { $("lErr").textContent = "Enter your username and password."; return; }
+    $("lBtn").disabled = true;
+    $("lErr").textContent = "";
+    rawFetch("/auth/v1/token?grant_type=password", {
+      method: "POST", body: JSON.stringify({ email: u + EMAIL_DOMAIN, password: p })
+    }).then(function (r) {
+      if (!r.ok) {
+        return errText(r).then(function (t) {
+          throw new Error(/invalid|credentials/i.test(t) ? "Wrong username or password." : t);
+        });
+      }
+      return r.json();
+    }).then(function (j) {
+      storeSession(toSession(j));
+      return start();
+    }).catch(function (err) {
+      $("lErr").textContent = err.message;
+    }).then(function () { $("lBtn").disabled = false; });
+  });
 
+  $("signOut").addEventListener("click", function () {
+    var token = session && session.access_token;
+    storeSession(null);
+    me = null; actions = []; profiles = [];
+    if (token) rawFetch("/auth/v1/logout", { method: "POST" }, token).catch(function () {});
+    $("teamPanel").hidden = true;
+    showLogin("");
+  });
+
+  /* ---------- profiles and users ---------- */
+  function loadProfiles() {
+    return api("/profiles?select=id,username,role&order=username.asc").then(function (rows) {
+      profiles = rows || [];
+      me = profiles.filter(function (p) { return p.id === session.user_id; })[0] ||
+           { id: session.user_id, username: "me", role: "member" };
+      $("meName").textContent = me.username;
+      $("meRole").textContent = me.role === "admin" ? "admin" : "";
+      $("teamBtn").hidden = me.role !== "admin";
+      renderMembers();
+    });
+  }
+  function renderMembers() {
+    $("members").innerHTML = profiles.map(function (p) {
+      return '<span class="chip">' + esc(p.username) + (p.role === "admin" ? '<small>admin</small>' : "") + "</span>";
+    }).join("");
+  }
+  $("teamBtn").addEventListener("click", function () {
+    $("teamPanel").hidden = !$("teamPanel").hidden;
+  });
+  $("userForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var u = $("uName").value.trim().toLowerCase();
+    var p = $("uPass").value;
+    $("uErr").textContent = ""; $("uOk").textContent = "";
+    if (!u || !p) { $("uErr").textContent = "Enter a username and an initial password."; return; }
+    $("uBtn").disabled = true;
+    api("/rpc/admin_create_user", {
+      method: "POST", body: JSON.stringify({ p_username: u, p_password: p })
+    }).then(function () {
+      $("uName").value = ""; $("uPass").value = "";
+      $("uOk").textContent = "User " + u + " added. They can sign in now.";
+      return loadProfiles().then(render);
+    }).catch(function (err) {
+      if (authFailed(err)) return handleError(err);
+      $("uErr").textContent = err.message;
+    }).then(function () { $("uBtn").disabled = false; });
+  });
+
+  /* ---------- helpers ---------- */
   function todayStr() {
     var d = new Date();
-    var m = String(d.getMonth() + 1).padStart(2, "0");
-    var day = String(d.getDate()).padStart(2, "0");
-    return d.getFullYear() + "-" + m + "-" + day;
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
   var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   function fmt(s) {
@@ -232,6 +437,15 @@
   }
   function isOverdue(a) { return !a.done && a.due < todayStr(); }
 
+  /* ---------- actions ---------- */
+  function refresh() {
+    return api("/actions?select=*&order=due.asc,created_at.asc").then(function (rows) {
+      actions = rows || [];
+      $("banner").textContent = "";
+      render();
+    }).catch(handleError);
+  }
+
   function render() {
     var open = actions.filter(function (a) { return !a.done; }).length;
     var over = actions.filter(isOverdue).length;
@@ -241,6 +455,7 @@
     $("overdueCard").classList.toggle("zero", over === 0);
 
     var names = {};
+    profiles.forEach(function (p) { names[p.username] = true; });
     actions.forEach(function (a) { names[a.owner] = true; });
     $("owners").innerHTML = Object.keys(names).sort().map(function (n) {
       return '<option value="' + esc(n) + '">';
@@ -251,7 +466,6 @@
       host.innerHTML = '<div class="card empty">No actions yet. Add the first one above.</div>';
       return;
     }
-
     var byOwner = {};
     actions.forEach(function (a) { (byOwner[a.owner] = byOwner[a.owner] || []).push(a); });
 
@@ -289,47 +503,63 @@
       return;
     }
     $("err").textContent = "";
-    var existing = actions.filter(function (a) { return a.owner.toLowerCase() === owner.toLowerCase(); })[0];
-    if (existing) owner = existing.owner;
-    api("", {
-      method: "POST",
-      headers: { "Prefer": "return=minimal" },
+    var known = profiles.map(function (p) { return p.username; })
+      .concat(actions.map(function (a) { return a.owner; }));
+    var match = known.filter(function (n) { return n.toLowerCase() === owner.toLowerCase(); })[0];
+    if (match) owner = match;
+    api("/actions", {
+      method: "POST", headers: { "Prefer": "return=minimal" },
       body: JSON.stringify({ text: text, owner: owner, due: due })
     }).then(function () {
       $("fText").value = "";
       $("fText").focus();
       return refresh();
-    }).catch(fail);
+    }).catch(handleError);
   });
 
   $("groups").addEventListener("change", function (e) {
     var id = e.target.getAttribute("data-id");
     if (!id) return;
-    api("?id=eq." + encodeURIComponent(id), {
-      method: "PATCH",
-      headers: { "Prefer": "return=minimal" },
+    api("/actions?id=eq." + encodeURIComponent(id), {
+      method: "PATCH", headers: { "Prefer": "return=minimal" },
       body: JSON.stringify({ done: e.target.checked })
-    }).then(refresh).catch(fail);
+    }).then(refresh).catch(handleError);
   });
 
   $("groups").addEventListener("click", function (e) {
     var id = e.target.getAttribute("data-del");
     if (!id) return;
-    api("?id=eq." + encodeURIComponent(id), { method: "DELETE" }).then(refresh).catch(fail);
+    api("/actions?id=eq." + encodeURIComponent(id), { method: "DELETE" }).then(refresh).catch(handleError);
   });
 
   $("clearDone").addEventListener("click", function () {
     var n = actions.filter(function (a) { return a.done; }).length;
     if (!n) return;
     if (confirm("Remove " + n + " completed action" + (n === 1 ? "" : "s") + "?")) {
-      api("?done=eq.true", { method: "DELETE" }).then(refresh).catch(fail);
+      api("/actions?done=eq.true", { method: "DELETE" }).then(refresh).catch(handleError);
     }
   });
 
-  // refresh when the tab regains focus so the team sees each other's changes
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && session && !$("appView").hidden) refresh();
+  });
 
-  refresh();
+  /* ---------- start ---------- */
+  function start() {
+    return loadProfiles().then(function () {
+      showApp();
+      return refresh();
+    });
+  }
+
+  if (session) {
+    start().catch(function (e) {
+      storeSession(null);
+      showLogin(authFailed(e) ? "" : "Could not load your account. Please sign in again.");
+    });
+  } else {
+    showLogin("");
+  }
 })();
 </script>
 </body>
